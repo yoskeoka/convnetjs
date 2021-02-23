@@ -1,5 +1,6 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
 // Layers that implement a loss. Currently these are the layers that
@@ -13,11 +14,15 @@ export interface LossLayerOptions extends LayerOptions {
     num_classes: number;
 }
 
+export interface SerializedSoftmax extends SerializedLayerBase<'softmax'>{
+    num_inputs: number;
+}
+
 /** This is a classifier, with N discrete classes from 0 to N-1
  * it gets a stream of N incoming numbers and computes the softmax
  * function (exponentiate and normalize to sum to 1 as probabilities should)
  */
-export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softmax'> {
+export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softmax', SerializedSoftmax> {
     in_act: Vol;
     num_inputs: number;
     out_act: Vol;
@@ -84,22 +89,28 @@ export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softma
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.num_inputs = this.num_inputs;
-        return json;
+    toJSON(): SerializedSoftmax {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            num_inputs: this.num_inputs,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedSoftmax) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
         this.layer_type = json.layer_type as 'softmax';
         this.num_inputs = json.num_inputs as number;
+
+        return this
     }
+}
+
+export interface SerializedRegression extends SerializedLayerBase<'regression'>{
+    num_inputs: number;
 }
 
 /**
@@ -107,7 +118,7 @@ export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softma
  * so penalizes \sum_i(||x_i - y_i||^2), where x is its input
  * and y is the user-provided array of "correct" values.
  */
-export class RegressionLayer extends LayerBase<'regression'> implements ILayer<'regression'> {
+export class RegressionLayer extends LayerBase<'regression'> implements ILayer<'regression', SerializedRegression> {
     num_inputs: number;
     in_act: Vol;
     out_act: Vol;
@@ -165,25 +176,32 @@ export class RegressionLayer extends LayerBase<'regression'> implements ILayer<'
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.num_inputs = this.num_inputs;
-        return json;
+    toJSON(): SerializedRegression {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            num_inputs: this.num_inputs,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedRegression) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
         this.layer_type = json.layer_type as 'regression';
         this.num_inputs = json.num_inputs as number;
+
+        return this
     }
 }
 
-export class SVMLayer extends LayerBase<'svm'> implements ILayer<'svm'> {
+export interface SerializedSVM extends SerializedLayerBase<'svm'>{
+    num_inputs: number;
+}
+
+
+export class SVMLayer extends LayerBase<'svm'> implements ILayer<'svm', SerializedSVM> {
     num_inputs: number;
     in_act: Vol;
     out_act: Vol;
@@ -233,21 +251,23 @@ export class SVMLayer extends LayerBase<'svm'> implements ILayer<'svm'> {
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.num_inputs = this.num_inputs;
-        return json;
+    toJSON(): SerializedSVM {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            num_inputs: this.num_inputs,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedSVM) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
         this.layer_type = json.layer_type as 'svm';
         this.num_inputs = json.num_inputs as number;
+
+        return this
     }
 }
 

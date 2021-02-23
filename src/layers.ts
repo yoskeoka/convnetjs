@@ -1,12 +1,14 @@
-import { Vol, VolJSON } from "./convnet_vol";
+import { Vol } from "./convnet_vol";
 export interface LayerOptions {
     [key: string]: number | string;
     type: string;
 }
 
-export interface LayerJSON {
-    [key: string]: number | string | number[] | VolJSON | VolJSON[];
-    filters?: VolJSON[];
+export interface SerializedLayerBase<T> {
+    layer_type: T;
+    out_sx: number;
+    out_sy: number;
+    out_depth: number;
 }
 
 export interface ParamsAndGrads {
@@ -17,7 +19,7 @@ export interface ParamsAndGrads {
 }
 
 
-export interface ILayer<T extends string> {
+export interface ILayer<T extends string, S extends SerializedLayerBase<T>> {
     layer_type: T;
     in_sx: number;
     in_sy: number;
@@ -28,8 +30,8 @@ export interface ILayer<T extends string> {
     forward(V: Vol, is_training: boolean): Vol;
     backward(y?: number | number[] | Float64Array | { [key: string]: number }): void | number;
     getParamsAndGrads(): ParamsAndGrads[];
-    toJSON(): LayerJSON;
-    fromJSON(json: LayerJSON): void;
+    toJSON(): S;
+    fromJSON(json: S): ILayer<T, S>;
 }
 
 export class LayerBase<T extends string> {

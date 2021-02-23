@@ -1,5 +1,6 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
 export interface LocalResponseNormalizationLayerOptions extends LayerOptions {
@@ -12,12 +13,20 @@ export interface LocalResponseNormalizationLayerOptions extends LayerOptions {
     /** <required> */
     beta: number;
 }
+
+export interface SerializedLocalResponseNormalization extends SerializedLayerBase<'lrn'>{
+    k: number;
+    n: number;
+    alpha: number;
+    beta: number;
+}
+
 /**
  * a bit experimental layer for now. I think it works but I'm not 100%
  * the gradient check is a bit funky. I'll look into this a bit later.
  * Local Response Normalization in window, along depths of volumes
  */
-export class LocalResponseNormalizationLayer extends LayerBase<'lrn'> implements ILayer<'lrn'> {
+export class LocalResponseNormalizationLayer extends LayerBase<'lrn'> implements ILayer<'lrn', SerializedLocalResponseNormalization> {
     k: number;
     n: number;
     alpha: number;
@@ -111,19 +120,19 @@ export class LocalResponseNormalizationLayer extends LayerBase<'lrn'> implements
         return [];
     }
 
-    toJSON() {
-        const json: LayerJSON = {};
-        json.k = this.k;
-        json.n = this.n;
-        json.alpha = this.alpha; // normalize by size
-        json.beta = this.beta;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.out_depth = this.out_depth;
-        json.layer_type = this.layer_type;
-        return json;
+    toJSON(): SerializedLocalResponseNormalization {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            k: this.k,
+            n: this.n,
+            alpha: this.alpha,
+            beta: this.beta,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedLocalResponseNormalization) {
         this.k = json.k as number;
         this.n = json.n as number;
         this.alpha = json.alpha as number; // normalize by size
@@ -132,5 +141,7 @@ export class LocalResponseNormalizationLayer extends LayerBase<'lrn'> implements
         this.out_sy = json.out_sy as number;
         this.out_depth = json.out_depth as number;
         this.layer_type = json.layer_type as 'lrn';
+
+        return this
     }
 }

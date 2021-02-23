@@ -1,6 +1,7 @@
 import { Vol } from "./convnet_vol";
-import { LayerOptions, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerOptions, ParamsAndGrads } from "./layers";
 import * as util from "./convnet_util";
+
 import { LossLayerOptions, SVMLayer, RegressionLayer, SoftmaxLayer } from "./convnet_layers_loss";
 import { DotproductsLayerOptions, FullyConnLayer, ConvLayer } from "./convnet_layers_dotproducts";
 import { MaxoutLayer, TanhLayer, SigmoidLayer, ReluLayer } from "./convnet_layers_nonlinearities";
@@ -9,11 +10,36 @@ import { InputLayer } from "./convnet_layers_input";
 import { DropoutLayer } from "./convnet_layers_dropout";
 import { LocalResponseNormalizationLayer } from "./convnet_layers_normalization";
 
+import type { SerializedSVM, SerializedRegression, SerializedSoftmax } from "./convnet_layers_loss";
+import type { SerializedFullyConn, SerializedConv } from "./convnet_layers_dotproducts";
+import type { SerializedMaxout, SerializedTanh, SerializedSigmoid, SerializedRelu } from "./convnet_layers_nonlinearities";
+import type { SerializedPool } from "./convnet_layers_pool";
+import type { SerializedInput } from "./convnet_layers_input";
+import type { SerializedDropout } from "./convnet_layers_dropout";
+import type { SerializedLocalResponseNormalization } from "./convnet_layers_normalization" ;
+
+
 const assert = util.assert;
 
-export interface NetJSON{
-    layers?: LayerJSON[];
+export interface SerializedNet{
+    layers?: SerializedLayerType[];
 }
+
+
+export type SerializedLayerType = 
+    | SerializedSVM
+    | SerializedRegression
+    | SerializedSoftmax
+    | SerializedFullyConn
+    | SerializedConv
+    | SerializedMaxout
+    | SerializedTanh
+    | SerializedSigmoid
+    | SerializedRelu
+    | SerializedPool
+    | SerializedInput
+    | SerializedDropout
+    | SerializedLocalResponseNormalization;
 
 export type LayerType = 
     | FullyConnLayer
@@ -28,7 +54,7 @@ export type LayerType =
     | SigmoidLayer
     | TanhLayer
     | MaxoutLayer
-    | SVMLayer
+    | SVMLayer;
 
 class InvalidCostTypeError extends TypeError {
     name = 'InvalidCostType'
@@ -207,35 +233,34 @@ export class Net {
         }
         throw Error("to getPrediction, the last layer must be softmax");
     }
-    toJSON(): NetJSON {
-        const json: NetJSON = {};
+    toJSON(): SerializedNet {
+        const json: SerializedNet = {};
         json.layers = [];
         for (let i = 0; i < this.layers.length; i++) {
             json.layers.push(this.layers[i].toJSON());
         }
         return json;
     }
-    fromJSON(json: NetJSON) {
+    fromJSON(json: SerializedNet) {
         this.layers = [];
         for (let i = 0; i < json.layers.length; i++) {
-            const Lj = json.layers[i]
-            const t = Lj.layer_type;
+            const layer = json.layers[i];
             let L: LayerType;
-            if (t === 'input') { L = new InputLayer(); }
-            if (t === 'relu') { L = new ReluLayer(); }
-            if (t === 'sigmoid') { L = new SigmoidLayer(); }
-            if (t === 'tanh') { L = new TanhLayer(); }
-            if (t === 'dropout') { L = new DropoutLayer(); }
-            if (t === 'conv') { L = new ConvLayer(); }
-            if (t === 'pool') { L = new PoolLayer(); }
-            if (t === 'lrn') { L = new LocalResponseNormalizationLayer(); }
-            if (t === 'softmax') { L = new SoftmaxLayer(); }
-            if (t === 'regression') { L = new RegressionLayer(); }
-            if (t === 'fc') { L = new FullyConnLayer(); }
-            if (t === 'maxout') { L = new MaxoutLayer(); }
-            if (t === 'svm') { L = new SVMLayer(); }
 
-            L.fromJSON(Lj);
+            if (layer.layer_type === 'input') { L = new InputLayer().fromJSON(layer); }
+            if (layer.layer_type === 'relu') { L = new ReluLayer().fromJSON(layer); }
+            if (layer.layer_type === 'sigmoid') { L = new SigmoidLayer().fromJSON(layer); }
+            if (layer.layer_type === 'tanh') { L = new TanhLayer().fromJSON(layer); }
+            if (layer.layer_type === 'dropout') { L = new DropoutLayer().fromJSON(layer); }
+            if (layer.layer_type === 'conv') { L = new ConvLayer().fromJSON(layer); }
+            if (layer.layer_type === 'pool') { L = new PoolLayer().fromJSON(layer); }
+            if (layer.layer_type === 'lrn') { L = new LocalResponseNormalizationLayer().fromJSON(layer); }
+            if (layer.layer_type === 'softmax') { L = new SoftmaxLayer().fromJSON(layer); }
+            if (layer.layer_type === 'regression') { L = new RegressionLayer().fromJSON(layer); }
+            if (layer.layer_type === 'fc') { L = new FullyConnLayer().fromJSON(layer); }
+            if (layer.layer_type === 'maxout') { L = new MaxoutLayer().fromJSON(layer); }
+            if (layer.layer_type === 'svm') { L = new SVMLayer().fromJSON(layer); }
+
             this.layers.push(L);
         }
     }

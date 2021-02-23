@@ -1,9 +1,14 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import type { SerializedLayerBase, ILayer } from "./layers";
 import * as util from "./convnet_util";
 
 export interface DorpoutLayerOptions extends LayerOptions {
     /** <required> */
+    drop_prob: number;
+}
+
+export interface SerializedDropout extends SerializedLayerBase<'dropout'> {
     drop_prob: number;
 }
 
@@ -15,7 +20,7 @@ export interface DorpoutLayerOptions extends LayerOptions {
  * we could equivalently be clever and upscale during train and copy pointers during test
  * todo: make more efficient.
  */
-export class DropoutLayer extends LayerBase<'dropout'> implements ILayer<'dropout'> {
+export class DropoutLayer extends LayerBase<'dropout'> implements ILayer<'dropout', SerializedDropout> {
     in_act: Vol;
     drop_prob: number;
     dropped: boolean[];
@@ -66,16 +71,16 @@ export class DropoutLayer extends LayerBase<'dropout'> implements ILayer<'dropou
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.drop_prob = this.drop_prob;
-        return json;
+    toJSON(): SerializedDropout {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            drop_prob: this.drop_prob,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedDropout) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
@@ -84,5 +89,7 @@ export class DropoutLayer extends LayerBase<'dropout'> implements ILayer<'dropou
 
         const d = <number[]>util.zeros(this.out_sx * this.out_sy * this.out_depth);
         this.dropped = d.map((v) => v !== 0);
+
+        return this
     }
 }

@@ -1,5 +1,7 @@
-import { Vol, VolJSON } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { Vol } from "./convnet_vol";
+import type { SerializedVol } from "./convnet_vol";
+import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import type { SerializedLayerBase, ILayer } from "./layers";
 import * as util from "./convnet_util";
 
 // This file contains all layers that do dot products with input,
@@ -58,10 +60,22 @@ export class DotproductsLayer<T extends string> extends LayerBase<T> {
     }
 }
 
+export interface SerializedConv extends SerializedLayerBase<'conv'> { 
+    sx: number;
+    sy: number;
+    stride: number;
+    in_depth: number;
+    l1_decay_mul: number;
+    l2_decay_mul: number;
+    pad: number;
+    filters: SerializedVol[];
+    biases: SerializedVol;
+}
+
 /**
  * ConvLayer does convolutions (so weight sharing spatially)
 */
-export class ConvLayer extends DotproductsLayer<'conv'> {
+export class ConvLayer extends DotproductsLayer<'conv'> implements ILayer<'conv', SerializedConv>{
     sx: number;
     sy: number;
     stride: number;
@@ -102,7 +116,7 @@ export class ConvLayer extends DotproductsLayer<'conv'> {
         this.biases = new Vol(1, 1, this.out_depth, bias);
     }
 
-    forward(V: Vol, ) {
+    forward(V: Vol) {
         // optimized code by @mdda that achieves 2x speedup over previous version
 
         this.in_act = V;
@@ -143,7 +157,6 @@ export class ConvLayer extends DotproductsLayer<'conv'> {
         return this.out_act;
     }
     backward() {
-
         const V = this.in_act;
         V.dw = util.zeros(V.w.length); // zero out gradient wrt bottom data, we're about to fill it
 
@@ -190,27 +203,30 @@ export class ConvLayer extends DotproductsLayer<'conv'> {
         response.push({ params: this.biases.w, grads: this.biases.dw, l1_decay_mul: 0.0, l2_decay_mul: 0.0 });
         return response;
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.sx = this.sx; // filter size in x, y dims
-        json.sy = this.sy;
-        json.stride = this.stride;
-        json.in_depth = this.in_depth;
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.l1_decay_mul = this.l1_decay_mul;
-        json.l2_decay_mul = this.l2_decay_mul;
-        json.pad = this.pad;
-        json.filters = [];
+    toJSON(): SerializedConv {
+        const filters = new Array(this.filters.length);
+
         for (let i = 0; i < this.filters.length; i++) {
-            json.filters.push(this.filters[i].toJSON());
+            filters[i] = (this.filters[i].toJSON());
         }
-        json.biases = this.biases.toJSON();
-        return json;
+
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            sx: this.sx,
+            sy: this.sy,
+            stride: this.stride,
+            in_depth: this.in_depth,
+            l1_decay_mul: this.l1_decay_mul,
+            l2_decay_mul: this.l2_decay_mul,
+            pad: this.pad,
+            filters,
+            biases: this.biases.toJSON(),
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedConv) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
@@ -229,14 +245,24 @@ export class ConvLayer extends DotproductsLayer<'conv'> {
             this.filters.push(v);
         }
         this.biases = new Vol(0, 0, 0, 0);
-        this.biases.fromJSON(json.biases as VolJSON);
+        this.biases.fromJSON(json.biases as SerializedVol);
+
+        return this;
     }
+}
+
+export interface SerializedFullyConn extends SerializedLayerBase<'fc'> { 
+    num_inputs: number;
+    l1_decay_mul: number;
+    l2_decay_mul: number;
+    filters: SerializedVol[];
+    biases: SerializedVol;
 }
 
 /**
  * FullyConn is fully connected dot products
  */
-export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc'> {
+export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc', SerializedFullyConn> {
     num_inputs: number;
     bias_pref: number;
 
@@ -302,23 +328,26 @@ export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc
         response.push({ params: this.biases.w, grads: this.biases.dw, l1_decay_mul: 0.0, l2_decay_mul: 0.0 });
         return response;
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.num_inputs = this.num_inputs;
-        json.l1_decay_mul = this.l1_decay_mul;
-        json.l2_decay_mul = this.l2_decay_mul;
-        json.filters = [] as VolJSON[];
+    toJSON(): SerializedFullyConn {
+        const filters = new Array(this.filters.length);
+
         for (let i = 0; i < this.filters.length; i++) {
-            json.filters.push(this.filters[i].toJSON());
+            filters[i] = (this.filters[i].toJSON());
         }
-        json.biases = this.biases.toJSON() as VolJSON;
-        return json;
+
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            num_inputs: this.num_inputs,
+            l1_decay_mul: this.l1_decay_mul,
+            l2_decay_mul: this.l2_decay_mul,
+            filters,
+            biases: this.biases.toJSON(),
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedFullyConn) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
@@ -334,6 +363,8 @@ export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc
         }
         this.biases = new Vol(0, 0, 0, 0);
         this.biases.fromJSON(json.biases as Vol);
+
+        return this
     }
 }
 

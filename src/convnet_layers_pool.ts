@@ -1,5 +1,6 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptions, LayerJSON, ParamsAndGrads } from "./layers";
+import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
 export interface PoolLayerOptions extends LayerOptions {
@@ -13,7 +14,16 @@ export interface PoolLayerOptions extends LayerOptions {
     pad?: number;
 }
 
-export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool'> {
+export interface SerializedPool extends SerializedLayerBase<'pool'>{
+    sx: number;
+    sy: number;
+    stride: number;
+    in_depth: number;
+    pad: number;
+}
+
+
+export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool', SerializedPool> {
     sx: number;
     sy: number;
     in_depth: number;
@@ -52,7 +62,7 @@ export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool'> {
         this.switchy = util.zeros(this.out_sx * this.out_sy * this.out_depth);
     }
 
-    forward(V: Vol, ) {
+    forward(V: Vol) {
         this.in_act = V;
 
         const A = new Vol(this.out_sx, this.out_sy, this.out_depth, 0.0);
@@ -119,20 +129,20 @@ export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool'> {
         return [];
     }
 
-    toJSON() {
-        const json: LayerJSON = {};
-        json.sx = this.sx;
-        json.sy = this.sy;
-        json.stride = this.stride;
-        json.in_depth = this.in_depth;
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.pad = this.pad;
-        return json;
+    toJSON(): SerializedPool {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            in_depth: this.in_depth,
+            sx: this.sx,
+            sy: this.sy,
+            stride: this.stride,
+            pad: this.pad,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedPool) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
@@ -144,5 +154,7 @@ export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool'> {
         this.pad = (typeof json.pad !== 'undefined' ? json.pad : 0) as number; // backwards compatibility
         this.switchx = util.zeros(this.out_sx * this.out_sy * this.out_depth); // need to re-init these appropriately
         this.switchy = util.zeros(this.out_sx * this.out_sy * this.out_depth);
+
+        return this
     }
 }
