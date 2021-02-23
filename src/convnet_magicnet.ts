@@ -1,6 +1,6 @@
 import * as util from "./convnet_util";
 import { Vol } from "./convnet_vol";
-import { Net, NetJSON } from "./convnet_net";
+import { Net, SerializedNet } from "./convnet_net";
 import { Trainer, TrainerOptions } from "./convnet_trainers";
 import { LayerOptions } from "./layers";
 
@@ -34,7 +34,7 @@ export interface MagicNetOptions {
 }
 
 export interface MagicNetJSON{
-    nets?: NetJSON[];
+    nets?: SerializedNet[];
 }
 
 export interface Fold {

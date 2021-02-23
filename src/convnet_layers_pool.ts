@@ -1,5 +1,5 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
