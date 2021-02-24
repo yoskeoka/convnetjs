@@ -3,6 +3,7 @@ export { Vol } from "./convnet_vol";
 export { Net } from "./convnet_net";
 export { MagicNet, MagicNetOptions } from "./convnet_magicnet";
 export { randf, randi, randn, randperm } from "./convnet_util";
+export { augment, img_to_vol } from './convnet_vol_util';
 export { ConvLayer, FullyConnLayer, ConvLayerOptions, FullyConnLayerOptions } from "./convnet_layers_dotproducts";
 export { DropoutLayer, DorpoutLayerOptions } from "./convnet_layers_dropout";
 export { RegressionLayer, SVMLayer, SoftmaxLayer, LossLayerOptions } from "./convnet_layers_loss";
