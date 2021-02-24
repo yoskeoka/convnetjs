@@ -21,7 +21,7 @@ import type { SerializedLocalResponseNormalization } from "./convnet_layers_norm
 
 const assert = util.assert;
 
-export interface SerializedNet{
+export interface SerializedNet {
     layers?: SerializedLayerType[];
 }
 

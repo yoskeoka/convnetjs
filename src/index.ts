@@ -26,3 +26,7 @@ export { deepqlearn };
 // rename
 import { Trainer } from "./convnet_trainers";
 export { Trainer, Trainer as SGDTrainer };
+
+// typings
+export type { TrainStats } from "./convnet_trainers";
+export type { SerializedNet, SerializedLayerType, LayerType } from "./convnet_net";
