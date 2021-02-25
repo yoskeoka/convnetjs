@@ -1,60 +1,22 @@
 import { Vol } from "./convnet_vol";
-import { LayerOptions, ParamsAndGrads } from "./layers";
+import { ParamsAndGrads } from "./layers";
 import * as util from "./convnet_util";
 
-import { LossLayerOptions, SVMLayer, RegressionLayer, SoftmaxLayer } from "./convnet_layers_loss";
-import { DotproductsLayerOptions, FullyConnLayer, ConvLayer } from "./convnet_layers_dotproducts";
+import { SVMLayer, RegressionLayer, SoftmaxLayer } from "./convnet_layers_loss";
+import { FullyConnLayer, ConvLayer } from "./convnet_layers_dotproducts";
 import { MaxoutLayer, TanhLayer, SigmoidLayer, ReluLayer } from "./convnet_layers_nonlinearities";
 import { PoolLayer } from "./convnet_layers_pool";
 import { InputLayer } from "./convnet_layers_input";
 import { DropoutLayer } from "./convnet_layers_dropout";
 import { LocalResponseNormalizationLayer } from "./convnet_layers_normalization";
 
-import type { SerializedSVM, SerializedRegression, SerializedSoftmax } from "./convnet_layers_loss";
-import type { SerializedFullyConn, SerializedConv } from "./convnet_layers_dotproducts";
-import type { SerializedMaxout, SerializedTanh, SerializedSigmoid, SerializedRelu } from "./convnet_layers_nonlinearities";
-import type { SerializedPool } from "./convnet_layers_pool";
-import type { SerializedInput } from "./convnet_layers_input";
-import type { SerializedDropout } from "./convnet_layers_dropout";
-import type { SerializedLocalResponseNormalization } from "./convnet_layers_normalization" ;
-
+import { SerializedLayerType, LayerType,  LayerOptionsType, LayerOptionsSugarType } from "./typings";
 
 const assert = util.assert;
 
 export interface SerializedNet {
     layers?: SerializedLayerType[];
 }
-
-
-export type SerializedLayerType = 
-    | SerializedSVM
-    | SerializedRegression
-    | SerializedSoftmax
-    | SerializedFullyConn
-    | SerializedConv
-    | SerializedMaxout
-    | SerializedTanh
-    | SerializedSigmoid
-    | SerializedRelu
-    | SerializedPool
-    | SerializedInput
-    | SerializedDropout
-    | SerializedLocalResponseNormalization;
-
-export type LayerType = 
-    | FullyConnLayer
-    | LocalResponseNormalizationLayer
-    | DropoutLayer
-    | InputLayer
-    | SoftmaxLayer
-    | RegressionLayer
-    | ConvLayer
-    | PoolLayer
-    | ReluLayer
-    | SigmoidLayer
-    | TanhLayer
-    | MaxoutLayer
-    | SVMLayer;
 
 class InvalidCostTypeError extends TypeError {
     name = 'InvalidCostType'
@@ -81,43 +43,36 @@ export const smartBackward = (y: number | number[] | Float64Array | { [key: stri
  */
 export class Net {
     layers: LayerType[];
-    constructor(options?: LayerOptions[]) {
+    constructor(options?: LayerOptionsType[]) {
         if(!options){
             options = [];
         }
         this.layers = [];
     }
     // takes a list of layer definitions and creates the network layer objects
-    makeLayers(defs: LayerOptions[]) {
+    makeLayers(defs: LayerOptionsSugarType[]) {
 
         // few checks
         assert(defs.length >= 2, 'Error! At least one input layer and one loss layer are required.');
         assert(defs[0].type === 'input', 'Error! First layer must be the input layer, to declare size of inputs');
 
         // desugar layer_defs for adding activation, dropout layers etc
-        const desugar = function (defs: LayerOptions[]) {
-            const new_defs = new Array<LayerOptions>();
+        const desugar = function (defs: LayerOptionsSugarType[]) {
+            const new_defs: LayerOptionsSugarType[] = [];
             for (let i = 0; i < defs.length; i++) {
                 const def = defs[i];
 
-                if (def.type === 'softmax' || def.type === 'svm') {
-                    const lossDef = <LossLayerOptions>def;
+                if (def.type === 'softmax' || def.type === 'svm' || def.type === 'regression') {
                     // add an fc layer here, there is no reason the user should
                     // have to worry about this and we almost always want to
-                    new_defs.push({ type: 'fc', num_neurons: lossDef.num_classes });
-                }
-                if (def.type === 'regression') {
-                    // add an fc layer here, there is no reason the user should
-                    // have to worry about this and we almost always want to
-                    new_defs.push({ type: 'fc', num_neurons: def.num_neurons });
+                    new_defs.push({ type: 'fc', num_neurons: def.num_classes });
                 }
 
                 if (def.type === 'fc' || def.type === 'conv') {
-                    const dotDef = <DotproductsLayerOptions>def;
-                    if (typeof (dotDef.bias_pref) === 'undefined') {
-                        dotDef.bias_pref = 0.0;
-                        if (typeof dotDef.activation !== 'undefined' && dotDef.activation === 'relu') {
-                            dotDef.bias_pref = 0.1; // relus like a bit of positive bias to get gradients early
+                    if (typeof (def.bias_pref) === 'undefined') {
+                        def.bias_pref = 0.0;
+                        if (typeof def.activation !== 'undefined' && def.activation === 'relu') {
+                            def.bias_pref = 0.1; // relus like a bit of positive bias to get gradients early
                             // otherwise it's technically possible that a relu unit will never turn on (by chance)
                             // and will never get any gradient and never contribute any computation. Dead relu.
                         }
@@ -126,18 +81,18 @@ export class Net {
 
                 new_defs.push(def);
 
-                if (typeof def.activation !== 'undefined') {
+                if ("activation" in def) {
                     if (def.activation === 'relu') { new_defs.push({ type: 'relu' }); }
                     else if (def.activation === 'sigmoid') { new_defs.push({ type: 'sigmoid' }); }
                     else if (def.activation === 'tanh') { new_defs.push({ type: 'tanh' }); }
                     else if (def.activation === 'maxout') {
                         // create maxout activation, and pass along group size, if provided
-                        const gs = def.group_size !== 'undefined' ? def.group_size : 2;
+                        const gs = 'group_size' in def ? def.group_size : 2;
                         new_defs.push({ type: 'maxout', group_size: gs });
                     }
                     else { console.log('ERROR unsupported activation ' + def.activation); }
                 }
-                if (typeof def.drop_prob !== 'undefined' && def.type !== 'dropout') {
+                if ('drop_prob' in def && def.type !== 'dropout') {
                     new_defs.push({ type: 'dropout', drop_prob: def.drop_prob });
                 }
 
@@ -149,7 +104,7 @@ export class Net {
         // create the layers
         this.layers = [];
         for (let i = 0; i < defs.length; i++) {
-            const def = defs[i];
+            const def = defs[i] as LayerOptionsType;
             if (i > 0) {
                 const prev = this.layers[i - 1];
                 def.in_sx = prev.out_sx;
@@ -171,7 +126,6 @@ export class Net {
                 case 'tanh': this.layers.push(new TanhLayer(def)); break;
                 case 'maxout': this.layers.push(new MaxoutLayer(def)); break;
                 case 'svm': this.layers.push(new SVMLayer(def)); break;
-                default: console.log('ERROR: UNRECOGNIZED LAYER TYPE: ' + def.type);
             }
         }
     }

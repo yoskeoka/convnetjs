@@ -1,9 +1,9 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { SerializedLayerBase, ILayer } from "./layers";
 import * as util from "./convnet_util";
 
-export interface DorpoutLayerOptions extends LayerOptions {
+export interface DropoutOptions extends LayerOptionsBase<'dropout'> {
     /** <required> */
     drop_prob: number;
 }
@@ -26,16 +26,15 @@ export class DropoutLayer extends LayerBase<'dropout'> implements ILayer<'dropou
     dropped: boolean[];
     out_act: Vol;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: DropoutOptions) {
         if (!opt) { return; }
-        const dopt = <DorpoutLayerOptions>opt;
-        super('dropout', dopt);
+        super('dropout', opt);
 
         // computed
-        this.out_sx = dopt.in_sx as number;
-        this.out_sy = dopt.in_sy as number;
-        this.out_depth = dopt.in_depth as number;
-        this.drop_prob = typeof dopt.drop_prob !== 'undefined' ? dopt.drop_prob : 0.5;
+        this.out_sx = opt.in_sx as number;
+        this.out_sy = opt.in_sy as number;
+        this.out_depth = opt.in_depth as number;
+        this.drop_prob = typeof opt.drop_prob !== 'undefined' ? opt.drop_prob : 0.5;
         const d = <number[]>util.zeros(this.out_sx * this.out_sy * this.out_depth);
         this.dropped = d.map((v) => v !== 0);
     }

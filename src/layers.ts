@@ -1,7 +1,9 @@
 import { Vol } from "./convnet_vol";
-export interface LayerOptions {
-    [key: string]: number | string;
-    type: string;
+export interface LayerOptionsBase<T extends string> {
+    type: T;
+    in_sx: number;
+    in_sy: number;
+    in_depth: number;
 }
 
 export interface SerializedLayerBase<T> {
@@ -42,7 +44,7 @@ export class LayerBase<T extends string> {
     out_sx: number;
     out_sy: number;
     out_depth: number;
-    constructor(layerType: T, opt?: LayerOptions) {
+    constructor(layerType: T, opt?: LayerOptionsBase<T>) {
         this.layer_type = layerType;
         if (!opt) { return; }
     }

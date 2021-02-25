@@ -1,20 +1,17 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
-import * as util from "./convnet_util";
+import { getopt } from "./convnet_util";
 
-const getopt = util.getopt;
-
-export interface InputLayerOptions extends LayerOptions {
-    [key: string]: number | string;
-    out_depth: number;
-    depth: number;
-    width: number;
-    height: number;
+export interface InputOptions extends LayerOptionsBase<'input'> {
     out_sx: number;
     out_sy: number;
-    sx: number;
-    sy: number;
+    out_depth: number;
+    depth?: number;
+    width?: number;
+    height?: number;
+    sx?: number;
+    sy?: number;
 }
 
 export interface SerializedInput extends SerializedLayerBase<'input'>{}
@@ -26,7 +23,7 @@ export class InputLayer extends LayerBase<'input'> implements ILayer<'input', Se
     in_act: Vol;
     out_act: Vol;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: InputOptions) {
         if (!opt) { return; }
         super('input', opt);
 

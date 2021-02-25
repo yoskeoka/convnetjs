@@ -1,9 +1,9 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
-export interface LocalResponseNormalizationLayerOptions extends LayerOptions {
+export interface LocalResponseNormalizationOptions extends LayerOptionsBase<'lrn'> {
     /** <required> */
     k: number;
     /** <required> */
@@ -36,9 +36,9 @@ export class LocalResponseNormalizationLayer extends LayerBase<'lrn'> implements
     S_cache_: Vol;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: LocalResponseNormalizationOptions) {
         if (!opt) { return; }
-        const lrnopt = <LocalResponseNormalizationLayerOptions>opt;
+        const lrnopt = <LocalResponseNormalizationOptions>opt;
         super('lrn', lrnopt);
 
         // required

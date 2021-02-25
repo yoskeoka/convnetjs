@@ -1,6 +1,6 @@
 import { Vol } from "./convnet_vol";
 import type { SerializedVol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { SerializedLayerBase, ILayer } from "./layers";
 import * as util from "./convnet_util";
 
@@ -11,19 +11,37 @@ import * as util from "./convnet_util";
 // - ConvLayer does convolutions (so weight sharing spatially)
 // putting them together in one file because they are very similar
 
-export interface DotproductsLayerOptions extends LayerOptions {
+export interface DotproductsLayerOptions<T extends string> extends LayerOptionsBase<T> {
     filters?: number;
     // optional
     /** <optional> add dropout layer with drop probability */
     drop_prob?: number;
     /** <optional> set activation function. */
-    activation?: string;
+    activation?: 'maxout' | 'sigmoid' | 'relu' | 'tanh';
     bias_pref?: number;
     l1_decay_mul?: number;
     l2_decay_mul?: number;
 }
 
-export interface ConvLayerOptions extends DotproductsLayerOptions {
+export class DotproductsLayer<T extends string> extends LayerBase<T> {
+    l1_decay_mul: number;
+    l2_decay_mul: number;
+    filters: Vol[];
+    biases: Vol;
+    out_depth: number;
+    out_act: Vol;
+    in_act: Vol;
+    constructor(name: T, opt?: DotproductsLayerOptions<T>) {
+        if (!opt) { return; }
+        super(name);
+
+        // optional
+        this.l1_decay_mul = typeof opt.l1_decay_mul !== 'undefined' ? opt.l1_decay_mul : 0.0;
+        this.l2_decay_mul = typeof opt.l2_decay_mul !== 'undefined' ? opt.l2_decay_mul : 1.0;
+    }
+}
+
+export interface ConvOptions extends DotproductsLayerOptions<'conv'> {
     /** <required> */
     sx: number;
     /** <optional> */
@@ -36,28 +54,6 @@ export interface ConvLayerOptions extends DotproductsLayerOptions {
     l1_decay_mul?: number;
     /** <optional> */
     l2_decay_mul?: number;
-}
-
-export interface FullyConnLayerOptions extends DotproductsLayerOptions {
-    num_neurons: number;
-}
-
-export class DotproductsLayer<T extends string> extends LayerBase<T> {
-    l1_decay_mul: number;
-    l2_decay_mul: number;
-    filters: Vol[];
-    biases: Vol;
-    out_depth: number;
-    out_act: Vol;
-    in_act: Vol;
-    constructor(name: T, opt?: DotproductsLayerOptions) {
-        if (!opt) { return; }
-        super(name);
-
-        // optional
-        this.l1_decay_mul = typeof opt.l1_decay_mul !== 'undefined' ? opt.l1_decay_mul : 0.0;
-        this.l2_decay_mul = typeof opt.l2_decay_mul !== 'undefined' ? opt.l2_decay_mul : 1.0;
-    }
 }
 
 export interface SerializedConv extends SerializedLayerBase<'conv'> { 
@@ -85,22 +81,21 @@ export class ConvLayer extends DotproductsLayer<'conv'> implements ILayer<'conv'
     in_sy: number;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: ConvOptions) {
         if (!opt) { return; }
-        const copt = <ConvLayerOptions>opt;
-        super('conv', copt);
+        super('conv', opt);
 
         // required
-        this.out_depth = copt.filters;
-        this.sx = copt.sx; // filter size. Should be odd if possible, it's cleaner.
-        this.in_depth = copt.in_depth as number;
-        this.in_sx = copt.in_sx as number;
-        this.in_sy = copt.in_sy as number;
+        this.out_depth = opt.filters;
+        this.sx = opt.sx; // filter size. Should be odd if possible, it's cleaner.
+        this.in_depth = opt.in_depth;
+        this.in_sx = opt.in_sx;
+        this.in_sy = opt.in_sy;
 
         // optional
-        this.sy = typeof copt.sy !== 'undefined' ? copt.sy : this.sx;
-        this.stride = typeof copt.stride !== 'undefined' ? copt.stride : 1; // stride at which we apply filters to input volume
-        this.pad = typeof copt.pad !== 'undefined' ? copt.pad : 0; // amount of 0 padding to add around borders of input volume
+        this.sy = typeof opt.sy !== 'undefined' ? opt.sy : this.sx;
+        this.stride = typeof opt.stride !== 'undefined' ? opt.stride : 1; // stride at which we apply filters to input volume
+        this.pad = typeof opt.pad !== 'undefined' ? opt.pad : 0; // amount of 0 padding to add around borders of input volume
 
         // computed
         // note we are doing floor, so if the strided convolution of the filter doesnt fit into the input
@@ -251,6 +246,9 @@ export class ConvLayer extends DotproductsLayer<'conv'> implements ILayer<'conv'
     }
 }
 
+export interface FullyConnOptions extends DotproductsLayerOptions<'fc'> {
+    num_neurons: number;
+}
 export interface SerializedFullyConn extends SerializedLayerBase<'fc'> { 
     num_inputs: number;
     l1_decay_mul: number;
@@ -267,17 +265,16 @@ export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc
     bias_pref: number;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: FullyConnOptions) {
         if (!opt) { return; }
-        const fcopt = <FullyConnLayerOptions>opt;
-        super('fc', fcopt);
+        super('fc', opt);
 
         // required
         // ok fine we will allow 'filters' as the word as well
-        this.out_depth = typeof fcopt.num_neurons !== 'undefined' ? fcopt.num_neurons : fcopt.filters;
+        this.out_depth = typeof opt.num_neurons !== 'undefined' ? opt.num_neurons : opt.filters;
 
         // computed
-        this.num_inputs = <number>fcopt.in_sx * <number>fcopt.in_sy * <number>fcopt.in_depth;
+        this.num_inputs = <number>opt.in_sx * <number>opt.in_sy * <number>opt.in_depth;
         this.out_sx = 1;
         this.out_sy = 1;
         this.layer_type = 'fc';

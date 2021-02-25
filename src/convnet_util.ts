@@ -98,12 +98,16 @@ export function weightedSample(lst: number[], probs: number[]): number {
 /**
  * syntactic sugar function for getting default parameter values
  */
-export function getopt(opt: { [key: string]: number | string }, field_name: string | string[], default_value: number): number {
+export function getopt<T extends {}>(
+    opt: T, 
+    field_name: keyof T | (keyof T)[], 
+    default_value: number
+): number {
     if (typeof field_name === 'string') {
         // case of single string
         const ret = (typeof opt[field_name] !== 'undefined') ? opt[field_name] : default_value;
         return Number(ret);
-    } else {
+    } else if (field_name instanceof Array) {
         // assume we are given a list of string instead
         let ret = default_value;
         for (let i = 0; i < field_name.length; i++) {

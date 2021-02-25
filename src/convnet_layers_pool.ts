@@ -1,9 +1,9 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
-export interface PoolLayerOptions extends LayerOptions {
+export interface PoolOptions extends LayerOptionsBase<'pool'> {
     /** <required> filter size */
     sx: number;
     /** <optional> filter size */
@@ -36,21 +36,20 @@ export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool', Seria
     in_act: Vol;
     out_act: Vol;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: PoolOptions) {
         if (!opt) { return; }
-        const popt = <PoolLayerOptions>opt;
-        super('pool', popt);
+        super('pool', opt);
 
         // required
-        this.sx = popt.sx; // filter size
-        this.in_depth = popt.in_depth as number;
-        this.in_sx = popt.in_sx as number;
-        this.in_sy = popt.in_sy as number;
+        this.sx = opt.sx; // filter size
+        this.in_depth = opt.in_depth as number;
+        this.in_sx = opt.in_sx as number;
+        this.in_sy = opt.in_sy as number;
 
         // optional
-        this.sy = typeof popt.sy !== 'undefined' ? popt.sy : this.sx;
-        this.stride = typeof popt.stride !== 'undefined' ? popt.stride : 2;
-        this.pad = typeof popt.pad !== 'undefined' ? popt.pad : 0; // amount of 0 padding to add around borders of input volume
+        this.sy = typeof opt.sy !== 'undefined' ? opt.sy : this.sx;
+        this.stride = typeof opt.stride !== 'undefined' ? opt.stride : 2;
+        this.pad = typeof opt.pad !== 'undefined' ? opt.pad : 0; // amount of 0 padding to add around borders of input volume
 
         // computed
         this.out_depth = this.in_depth;

@@ -1,5 +1,5 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
@@ -9,11 +9,12 @@ import * as util from "./convnet_util";
 // learning, and stuff like that. But for now, one of the layers in this
 // file must be the final layer in a Net.
 
-export interface LossLayerOptions extends LayerOptions {
+export interface LossLayerOptions<T extends string> extends LayerOptionsBase<T> {
     /** <required> */
     num_classes: number;
 }
 
+export interface SoftmaxOptions extends LossLayerOptions<'softmax'>{}
 export interface SerializedSoftmax extends SerializedLayerBase<'softmax'>{
     num_inputs: number;
 }
@@ -28,13 +29,12 @@ export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softma
     out_act: Vol;
     es: number[] | Float64Array;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: SoftmaxOptions) {
         if (!opt) { return; }
-        const lopt = <LossLayerOptions>opt;
-        super('softmax', lopt);
+        super('softmax', opt);
 
         // computed
-        this.num_inputs = <number>lopt.in_sx * <number>lopt.in_sy * <number>lopt.in_depth;
+        this.num_inputs = <number>opt.in_sx * <number>opt.in_sy * <number>opt.in_depth;
         this.out_depth = this.num_inputs;
         this.out_sx = 1;
         this.out_sy = 1;
@@ -109,6 +109,7 @@ export class SoftmaxLayer extends LayerBase<'softmax'> implements ILayer<'softma
     }
 }
 
+export interface RegressionOptions extends LossLayerOptions<'regression'>{}
 export interface SerializedRegression extends SerializedLayerBase<'regression'>{
     num_inputs: number;
 }
@@ -124,13 +125,12 @@ export class RegressionLayer extends LayerBase<'regression'> implements ILayer<'
     out_act: Vol;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: RegressionOptions) {
         if (!opt) { return; }
-        const lopt = <LossLayerOptions>opt;
-        super('regression', lopt);
+        super('regression', opt);
 
         // computed
-        this.num_inputs = <number>lopt.in_sx * <number>lopt.in_sy * <number>lopt.in_depth;
+        this.num_inputs = <number>opt.in_sx * <number>opt.in_sy * <number>opt.in_depth;
         this.out_depth = this.num_inputs;
         this.out_sx = 1;
         this.out_sy = 1;
@@ -196,6 +196,7 @@ export class RegressionLayer extends LayerBase<'regression'> implements ILayer<'
     }
 }
 
+export interface SVMOptions extends LossLayerOptions<'svm'>{}
 export interface SerializedSVM extends SerializedLayerBase<'svm'>{
     num_inputs: number;
 }
@@ -206,13 +207,12 @@ export class SVMLayer extends LayerBase<'svm'> implements ILayer<'svm', Serializ
     in_act: Vol;
     out_act: Vol;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: SVMOptions) {
         if (!opt) { return; }
-        const lopt = <LossLayerOptions>opt;
-        super('svm', lopt);
+        super('svm', opt);
 
         // computed
-        this.num_inputs = <number>lopt.in_sx * <number>lopt.in_sy * <number>lopt.in_depth;
+        this.num_inputs = <number>opt.in_sx * <number>opt.in_sy * <number>opt.in_depth;
         this.out_depth = this.num_inputs;
         this.out_sx = 1;
         this.out_sy = 1;

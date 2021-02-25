@@ -1,23 +1,12 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
 import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
-
-export interface ReluLayerOptions extends LayerOptions {
-}
-export interface SigmoidLayerOptions extends LayerOptions {
-}
-export interface MaxLayerOptions extends LayerOptions {
-    /** <required> group_size must be the integral multiple of the input size   */
-    group_size: number;
-}
-export interface TanhLayerOptions extends LayerOptions {
-}
 
 export class OutputLayer<T extends string> extends LayerBase<T> {
     in_act: Vol;
     out_act: Vol;
-    constructor(layerType: T, opt: LayerOptions) {
+    constructor(layerType: T, opt: LayerOptionsBase<T>) {
         super(layerType, opt);
         this.out_sx = opt.in_sx as number;
         this.out_sy = opt.in_sy as number;
@@ -25,6 +14,7 @@ export class OutputLayer<T extends string> extends LayerBase<T> {
     }
 }
 
+export interface ReluOptions extends LayerOptionsBase<'relu'> {}
 export interface SerializedRelu extends SerializedLayerBase<'relu'>{}
 
 /**
@@ -34,7 +24,7 @@ export interface SerializedRelu extends SerializedLayerBase<'relu'>{}
  */
 export class ReluLayer extends OutputLayer<'relu'> implements ILayer<'relu', SerializedRelu> {
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: ReluOptions) {
         if (!opt) { return; }
         super('relu', opt);
     }
@@ -87,6 +77,7 @@ export class ReluLayer extends OutputLayer<'relu'> implements ILayer<'relu', Ser
     }
 }
 
+export interface SigmoidOptions extends LayerOptionsBase<'sigmoid'> {}
 export interface SerializedSigmoid extends SerializedLayerBase<'sigmoid'>{}
 
 /**
@@ -96,7 +87,7 @@ export interface SerializedSigmoid extends SerializedLayerBase<'sigmoid'>{}
  */
 export class SigmoidLayer extends OutputLayer<'sigmoid'> implements ILayer<'sigmoid', SerializedSigmoid> {
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: SigmoidOptions) {
         if (!opt) { return; }
         super('sigmoid', opt);
 
@@ -146,6 +137,10 @@ export class SigmoidLayer extends OutputLayer<'sigmoid'> implements ILayer<'sigm
     }
 }
 
+export interface MaxoutOptions extends LayerOptionsBase<'maxout'> {
+    /** <required> group_size must be the integral multiple of the input size   */
+    group_size: number;
+}
 export interface SerializedMaxout extends SerializedLayerBase<'maxout'>{
     group_size: number;
 }
@@ -159,16 +154,15 @@ export class MaxoutLayer extends OutputLayer<'maxout'> implements ILayer<'maxout
     switches: number[] | Float64Array;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: MaxoutOptions) {
         if (!opt) { return; }
-        const mopt = <MaxLayerOptions>opt;
-        super('maxout', mopt);
+        super('maxout', opt);
 
         // required
-        this.group_size = typeof mopt.group_size !== 'undefined' ? mopt.group_size : 2;
+        this.group_size = typeof opt.group_size !== 'undefined' ? opt.group_size : 2;
 
         // computed
-        this.out_depth = Math.floor(<number>mopt.in_depth / this.group_size);
+        this.out_depth = Math.floor(<number>opt.in_depth / this.group_size);
 
         this.switches = util.zeros(this.out_sx * this.out_sy * this.out_depth); // useful for backprop
     }
@@ -271,6 +265,7 @@ export class MaxoutLayer extends OutputLayer<'maxout'> implements ILayer<'maxout
     }
 }
 
+export interface TanhOptions extends LayerOptionsBase<'tanh'> {}
 export interface SerializedTanh extends SerializedLayerBase<'tanh'>{}
 
 /**
@@ -284,7 +279,7 @@ function tanh(x: number) {
 // x -> tanh(x)
 // so the output is between -1 and 1.
 export class TanhLayer extends OutputLayer<'tanh'> implements ILayer<'tanh', SerializedTanh> {
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: TanhOptions) {
         if (!opt) { return; }
         super('tanh', opt);
 

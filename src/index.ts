@@ -4,11 +4,11 @@ export { Net } from "./convnet_net";
 export { MagicNet, MagicNetOptions } from "./convnet_magicnet";
 export { randf, randi, randn, randperm } from "./convnet_util";
 export { augment, img_to_vol } from './convnet_vol_util';
-export { ConvLayer, FullyConnLayer, ConvLayerOptions, FullyConnLayerOptions } from "./convnet_layers_dotproducts";
-export { DropoutLayer, DorpoutLayerOptions } from "./convnet_layers_dropout";
+export { ConvLayer, FullyConnLayer, ConvOptions as ConvLayerOptions, FullyConnOptions as FullyConnLayerOptions } from "./convnet_layers_dotproducts";
+export { DropoutLayer } from "./convnet_layers_dropout";
 export { RegressionLayer, SVMLayer, SoftmaxLayer, LossLayerOptions } from "./convnet_layers_loss";
-export { LocalResponseNormalizationLayer, LocalResponseNormalizationLayerOptions } from "./convnet_layers_normalization";
-export { PoolLayer, PoolLayerOptions } from "./convnet_layers_pool";
+export { LocalResponseNormalizationLayer, LocalResponseNormalizationOptions as LocalResponseNormalizationLayerOptions } from "./convnet_layers_normalization";
+export { PoolLayer, PoolOptions as PoolLayerOptions } from "./convnet_layers_pool";
 export { TrainerOptions } from "./convnet_trainers";
 
 // module export
@@ -30,4 +30,5 @@ export { Trainer, Trainer as SGDTrainer };
 
 // typings
 export type { TrainStats } from "./convnet_trainers";
-export type { SerializedNet, SerializedLayerType, LayerType } from "./convnet_net";
+export type { SerializedNet } from "./convnet_net";
+export * from './typings';
