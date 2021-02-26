@@ -1,4 +1,5 @@
 import * as convnetjs from "../src/index";
+import type { LayerOptionsSugarType } from "../src/index";
 
 import * as Chai from "chai";
 const expect = Chai.expect;
@@ -9,7 +10,7 @@ describe("Simple Fully-Connected Neural Net Classifier", function () {
 
     beforeEach(function () {
         net = new convnetjs.Net();
-        const layer_defs = [];
+        const layer_defs: LayerOptionsSugarType[] = [];
         layer_defs.push({ type: 'input', out_sx: 1, out_sy: 1, out_depth: 2 });
         layer_defs.push({ type: 'fc', num_neurons: 5, activation: 'tanh' });
         layer_defs.push({ type: 'fc', num_neurons: 5, activation: 'tanh' });
