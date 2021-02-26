@@ -144,7 +144,7 @@ export class Brain {
 
         // create [state -> value of all possible actions] modeling net for the value function
         let layer_defs: LayerOptionsSugarType[] = [];
-        if (!('layer_defs' in opt)) {
+        if ('layer_defs' in opt) {
             // this is an advanced usage feature, because size of the input to the network, and number of
             // actions must check out. This is not very pretty Object Oriented programming but I can't see
             // a way out of it :(
