@@ -1,42 +1,32 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
+import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
-export interface ReluLayerOptions extends LayerOptions {
-}
-export interface SigmoidLayerOptions extends LayerOptions {
-}
-export interface MaxLayerOptions extends LayerOptions {
-    /** <required> group_size must be the integral multiple of the input size   */
-    group_size: number;
-}
-export interface TanhLayerOptions extends LayerOptions {
-}
-
-export class OutputLayer extends LayerBase {
+export class OutputLayer<T extends string> extends LayerBase<T> {
     in_act: Vol;
     out_act: Vol;
-    constructor(opt: LayerOptions) {
-        super(opt);
+    constructor(layerType: T, opt: LayerOptionsBase<T>) {
+        super(layerType, opt);
         this.out_sx = opt.in_sx as number;
         this.out_sy = opt.in_sy as number;
         this.out_depth = opt.in_depth as number;
     }
 }
 
+export interface ReluOptions extends LayerOptionsBase<'relu'> {}
+export interface SerializedRelu extends SerializedLayerBase<'relu'>{}
+
 /**
  * Implements ReLU nonlinearity elementwise
  * x -> max(0, x)
  * the output is in [0, inf)
  */
-export class ReluLayer extends OutputLayer implements ILayer {
+export class ReluLayer extends OutputLayer<'relu'> implements ILayer<'relu', SerializedRelu> {
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: ReluOptions) {
         if (!opt) { return; }
-        super(opt);
-
-        // computed
-        this.layer_type = 'relu';
+        super('relu', opt);
     }
     forward(V: Vol, ) {
         this.in_act = V;
@@ -69,32 +59,37 @@ export class ReluLayer extends OutputLayer implements ILayer {
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        return json;
+    toJSON(): SerializedRelu {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedRelu) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'relu';
+
+        return this
     }
 }
+
+export interface SigmoidOptions extends LayerOptionsBase<'sigmoid'> {}
+export interface SerializedSigmoid extends SerializedLayerBase<'sigmoid'>{}
 
 /**
  * Implements Sigmoid nnonlinearity elementwise
  * x -> 1/(1+e^(-x))
  * so the output is between 0 and 1.
  */
-export class SigmoidLayer extends OutputLayer implements ILayer {
+export class SigmoidLayer extends OutputLayer<'sigmoid'> implements ILayer<'sigmoid', SerializedSigmoid> {
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: SigmoidOptions) {
         if (!opt) { return; }
-        super(opt);
+        super('sigmoid', opt);
 
         // computed
         this.layer_type = 'sigmoid';
@@ -124,42 +119,50 @@ export class SigmoidLayer extends OutputLayer implements ILayer {
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        return json;
+    toJSON(): SerializedSigmoid {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedSigmoid) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'sigmoid';
+
+        return this
     }
+}
+
+export interface MaxoutOptions extends LayerOptionsBase<'maxout'> {
+    /** <required> group_size must be the integral multiple of the input size   */
+    group_size: number;
+}
+export interface SerializedMaxout extends SerializedLayerBase<'maxout'>{
+    group_size: number;
 }
 
 // Implements Maxout nnonlinearity that computes
 // x -> max(x)
 // where x is a vector of size group_size. Ideally of course,
 // the input size should be exactly divisible by group_size
-export class MaxoutLayer extends OutputLayer implements ILayer {
+export class MaxoutLayer extends OutputLayer<'maxout'> implements ILayer<'maxout', SerializedMaxout> {
     group_size: number;
     switches: number[] | Float64Array;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: MaxoutOptions) {
         if (!opt) { return; }
-        const mopt = <MaxLayerOptions>opt;
-        super(mopt);
+        super('maxout', opt);
 
         // required
-        this.group_size = typeof mopt.group_size !== 'undefined' ? mopt.group_size : 2;
+        this.group_size = typeof opt.group_size !== 'undefined' ? opt.group_size : 2;
 
         // computed
-        this.out_depth = Math.floor(<number>mopt.in_depth / this.group_size);
-        this.layer_type = 'maxout';
+        this.out_depth = Math.floor(<number>opt.in_depth / this.group_size);
 
         this.switches = util.zeros(this.out_sx * this.out_sy * this.out_depth); // useful for backprop
     }
@@ -241,24 +244,29 @@ export class MaxoutLayer extends OutputLayer implements ILayer {
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.group_size = this.group_size;
-        return json;
+    toJSON(): SerializedMaxout {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            group_size: this.group_size,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedMaxout) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'maxout';
         this.group_size = json.group_size as number;
         this.switches = util.zeros(this.group_size);
+
+        return this
     }
 }
+
+export interface TanhOptions extends LayerOptionsBase<'tanh'> {}
+export interface SerializedTanh extends SerializedLayerBase<'tanh'>{}
 
 /**
  * a helper function, since tanh is not yet part of ECMAScript. Will be in v6.
@@ -270,11 +278,10 @@ function tanh(x: number) {
 // Implements Tanh nnonlinearity elementwise
 // x -> tanh(x)
 // so the output is between -1 and 1.
-export class TanhLayer extends OutputLayer implements ILayer {
-
-    constructor(opt?: LayerOptions) {
+export class TanhLayer extends OutputLayer<'tanh'> implements ILayer<'tanh', SerializedTanh> {
+    constructor(opt?: TanhOptions) {
         if (!opt) { return; }
-        super(opt);
+        super('tanh', opt);
 
         // computed
         this.layer_type = 'tanh';
@@ -302,18 +309,20 @@ export class TanhLayer extends OutputLayer implements ILayer {
     getParamsAndGrads(): ParamsAndGrads[] {
         return [];
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        return json;
+    toJSON(): SerializedTanh {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedTanh) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'tanh';
+
+        return this
     }
 }

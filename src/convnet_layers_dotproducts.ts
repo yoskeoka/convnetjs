@@ -1,5 +1,7 @@
-import { Vol, VolJSON } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { Vol } from "./convnet_vol";
+import type { SerializedVol } from "./convnet_vol";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
+import type { SerializedLayerBase, ILayer } from "./layers";
 import * as util from "./convnet_util";
 
 // This file contains all layers that do dot products with input,
@@ -9,19 +11,37 @@ import * as util from "./convnet_util";
 // - ConvLayer does convolutions (so weight sharing spatially)
 // putting them together in one file because they are very similar
 
-export interface DotproductsLayerOptions extends LayerOptions {
+export interface DotproductsLayerOptions<T extends string> extends LayerOptionsBase<T> {
     filters?: number;
     // optional
     /** <optional> add dropout layer with drop probability */
     drop_prob?: number;
     /** <optional> set activation function. */
-    activation?: string;
+    activation?: 'maxout' | 'sigmoid' | 'relu' | 'tanh';
     bias_pref?: number;
     l1_decay_mul?: number;
     l2_decay_mul?: number;
 }
 
-export interface ConvLayerOptions extends DotproductsLayerOptions {
+export class DotproductsLayer<T extends string> extends LayerBase<T> {
+    l1_decay_mul: number;
+    l2_decay_mul: number;
+    filters: Vol[];
+    biases: Vol;
+    out_depth: number;
+    out_act: Vol;
+    in_act: Vol;
+    constructor(name: T, opt?: DotproductsLayerOptions<T>) {
+        if (!opt) { return; }
+        super(name);
+
+        // optional
+        this.l1_decay_mul = typeof opt.l1_decay_mul !== 'undefined' ? opt.l1_decay_mul : 0.0;
+        this.l2_decay_mul = typeof opt.l2_decay_mul !== 'undefined' ? opt.l2_decay_mul : 1.0;
+    }
+}
+
+export interface ConvOptions extends DotproductsLayerOptions<'conv'> {
     /** <required> */
     sx: number;
     /** <optional> */
@@ -36,32 +56,22 @@ export interface ConvLayerOptions extends DotproductsLayerOptions {
     l2_decay_mul?: number;
 }
 
-export interface FullyConnLayerOptions extends DotproductsLayerOptions {
-    num_neurons: number;
-}
-
-export class DotproductsLayer extends LayerBase {
+export interface SerializedConv extends SerializedLayerBase<'conv'> { 
+    sx: number;
+    sy: number;
+    stride: number;
+    in_depth: number;
     l1_decay_mul: number;
     l2_decay_mul: number;
-    filters: Vol[];
-    biases: Vol;
-    out_depth: number;
-    out_act: Vol;
-    in_act: Vol;
-    constructor(opt?: DotproductsLayerOptions) {
-        if (!opt) { return; }
-        super();
-
-        // optional
-        this.l1_decay_mul = typeof opt.l1_decay_mul !== 'undefined' ? opt.l1_decay_mul : 0.0;
-        this.l2_decay_mul = typeof opt.l2_decay_mul !== 'undefined' ? opt.l2_decay_mul : 1.0;
-    }
+    pad: number;
+    filters: SerializedVol[];
+    biases: SerializedVol;
 }
 
 /**
  * ConvLayer does convolutions (so weight sharing spatially)
 */
-export class ConvLayer extends DotproductsLayer {
+export class ConvLayer extends DotproductsLayer<'conv'> implements ILayer<'conv', SerializedConv>{
     sx: number;
     sy: number;
     stride: number;
@@ -71,22 +81,21 @@ export class ConvLayer extends DotproductsLayer {
     in_sy: number;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: ConvOptions) {
         if (!opt) { return; }
-        const copt = <ConvLayerOptions>opt;
-        super(copt);
+        super('conv', opt);
 
         // required
-        this.out_depth = copt.filters;
-        this.sx = copt.sx; // filter size. Should be odd if possible, it's cleaner.
-        this.in_depth = copt.in_depth as number;
-        this.in_sx = copt.in_sx as number;
-        this.in_sy = copt.in_sy as number;
+        this.out_depth = opt.filters;
+        this.sx = opt.sx; // filter size. Should be odd if possible, it's cleaner.
+        this.in_depth = opt.in_depth;
+        this.in_sx = opt.in_sx;
+        this.in_sy = opt.in_sy;
 
         // optional
-        this.sy = typeof copt.sy !== 'undefined' ? copt.sy : this.sx;
-        this.stride = typeof copt.stride !== 'undefined' ? copt.stride : 1; // stride at which we apply filters to input volume
-        this.pad = typeof copt.pad !== 'undefined' ? copt.pad : 0; // amount of 0 padding to add around borders of input volume
+        this.sy = typeof opt.sy !== 'undefined' ? opt.sy : this.sx;
+        this.stride = typeof opt.stride !== 'undefined' ? opt.stride : 1; // stride at which we apply filters to input volume
+        this.pad = typeof opt.pad !== 'undefined' ? opt.pad : 0; // amount of 0 padding to add around borders of input volume
 
         // computed
         // note we are doing floor, so if the strided convolution of the filter doesnt fit into the input
@@ -94,7 +103,6 @@ export class ConvLayer extends DotproductsLayer {
         // final application.
         this.out_sx = Math.floor((this.in_sx + this.pad * 2 - this.sx) / this.stride + 1);
         this.out_sy = Math.floor((this.in_sy + this.pad * 2 - this.sy) / this.stride + 1);
-        this.layer_type = 'conv';
 
         // initializations
         this.filters = [];
@@ -103,7 +111,7 @@ export class ConvLayer extends DotproductsLayer {
         this.biases = new Vol(1, 1, this.out_depth, bias);
     }
 
-    forward(V: Vol, ) {
+    forward(V: Vol) {
         // optimized code by @mdda that achieves 2x speedup over previous version
 
         this.in_act = V;
@@ -144,7 +152,6 @@ export class ConvLayer extends DotproductsLayer {
         return this.out_act;
     }
     backward() {
-
         const V = this.in_act;
         V.dw = util.zeros(V.w.length); // zero out gradient wrt bottom data, we're about to fill it
 
@@ -191,31 +198,34 @@ export class ConvLayer extends DotproductsLayer {
         response.push({ params: this.biases.w, grads: this.biases.dw, l1_decay_mul: 0.0, l2_decay_mul: 0.0 });
         return response;
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.sx = this.sx; // filter size in x, y dims
-        json.sy = this.sy;
-        json.stride = this.stride;
-        json.in_depth = this.in_depth;
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.l1_decay_mul = this.l1_decay_mul;
-        json.l2_decay_mul = this.l2_decay_mul;
-        json.pad = this.pad;
-        json.filters = [];
+    toJSON(): SerializedConv {
+        const filters = new Array(this.filters.length);
+
         for (let i = 0; i < this.filters.length; i++) {
-            json.filters.push(this.filters[i].toJSON());
+            filters[i] = (this.filters[i].toJSON());
         }
-        json.biases = this.biases.toJSON();
-        return json;
+
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            sx: this.sx,
+            sy: this.sy,
+            stride: this.stride,
+            in_depth: this.in_depth,
+            l1_decay_mul: this.l1_decay_mul,
+            l2_decay_mul: this.l2_decay_mul,
+            pad: this.pad,
+            filters,
+            biases: this.biases.toJSON(),
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedConv) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'conv';
         this.sx = json.sx as number; // filter size in x, y dims
         this.sy = json.sy as number;
         this.stride = json.stride as number;
@@ -230,29 +240,41 @@ export class ConvLayer extends DotproductsLayer {
             this.filters.push(v);
         }
         this.biases = new Vol(0, 0, 0, 0);
-        this.biases.fromJSON(json.biases as VolJSON);
+        this.biases.fromJSON(json.biases as SerializedVol);
+
+        return this;
     }
+}
+
+export interface FullyConnOptions extends DotproductsLayerOptions<'fc'> {
+    num_neurons: number;
+}
+export interface SerializedFullyConn extends SerializedLayerBase<'fc'> { 
+    num_inputs: number;
+    l1_decay_mul: number;
+    l2_decay_mul: number;
+    filters: SerializedVol[];
+    biases: SerializedVol;
 }
 
 /**
  * FullyConn is fully connected dot products
  */
-export class FullyConnLayer extends DotproductsLayer implements ILayer {
+export class FullyConnLayer extends DotproductsLayer<'fc'> implements ILayer<'fc', SerializedFullyConn> {
     num_inputs: number;
     bias_pref: number;
 
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: FullyConnOptions) {
         if (!opt) { return; }
-        const fcopt = <FullyConnLayerOptions>opt;
-        super(fcopt);
+        super('fc', opt);
 
         // required
         // ok fine we will allow 'filters' as the word as well
-        this.out_depth = typeof fcopt.num_neurons !== 'undefined' ? fcopt.num_neurons : fcopt.filters;
+        this.out_depth = typeof opt.num_neurons !== 'undefined' ? opt.num_neurons : opt.filters;
 
         // computed
-        this.num_inputs = <number>fcopt.in_sx * <number>fcopt.in_sy * <number>fcopt.in_depth;
+        this.num_inputs = <number>opt.in_sx * <number>opt.in_sy * <number>opt.in_depth;
         this.out_sx = 1;
         this.out_sy = 1;
         this.layer_type = 'fc';
@@ -303,27 +325,30 @@ export class FullyConnLayer extends DotproductsLayer implements ILayer {
         response.push({ params: this.biases.w, grads: this.biases.dw, l1_decay_mul: 0.0, l2_decay_mul: 0.0 });
         return response;
     }
-    toJSON() {
-        const json: LayerJSON = {};
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.num_inputs = this.num_inputs;
-        json.l1_decay_mul = this.l1_decay_mul;
-        json.l2_decay_mul = this.l2_decay_mul;
-        json.filters = [] as VolJSON[];
+    toJSON(): SerializedFullyConn {
+        const filters = new Array(this.filters.length);
+
         for (let i = 0; i < this.filters.length; i++) {
-            json.filters.push(this.filters[i].toJSON());
+            filters[i] = (this.filters[i].toJSON());
         }
-        json.biases = this.biases.toJSON() as VolJSON;
-        return json;
+
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            num_inputs: this.num_inputs,
+            l1_decay_mul: this.l1_decay_mul,
+            l2_decay_mul: this.l2_decay_mul,
+            filters,
+            biases: this.biases.toJSON(),
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedFullyConn) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'fc';
         this.num_inputs = json.num_inputs as number;
         this.l1_decay_mul = (typeof json.l1_decay_mul !== 'undefined' ? json.l1_decay_mul : 1.0) as number;
         this.l2_decay_mul = (typeof json.l2_decay_mul !== 'undefined' ? json.l2_decay_mul : 1.0) as number;
@@ -335,6 +360,11 @@ export class FullyConnLayer extends DotproductsLayer implements ILayer {
         }
         this.biases = new Vol(0, 0, 0, 0);
         this.biases.fromJSON(json.biases as Vol);
+
+        return this
     }
 }
 
+
+const a = new FullyConnLayer();
+a.layer_type

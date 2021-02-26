@@ -1,5 +1,13 @@
 import * as util from "./convnet_util";
 
+export interface SerializedVol {
+    sx: number;
+    sy: number;
+    depth: number;
+    w: number[] | Float64Array;
+}
+
+
 /** Vol is the basic building block of all data in a net.
  * it is essentially just a 3D volume of numbers, with a
  * width (sx), height (sy), and depth (depth).
@@ -90,13 +98,12 @@ export class Vol {
     addFromScaled(V: Vol, a: number) { for (let k = 0; k < this.w.length; k++) { this.w[k] += a * V.w[k]; } }
     setConst(a: number) { for (let k = 0; k < this.w.length; k++) { this.w[k] = a; } }
 
-    toJSON(): VolJSON {
+    toJSON(): SerializedVol {
         // todo: we may want to only save d most significant digits to save space
-        const json: VolJSON = { sx: this.sx, sy: this.sy, depth: this.depth, w: this.w };
-        return json;
+        return { sx: this.sx, sy: this.sy, depth: this.depth, w: this.w } as SerializedVol;
         // we wont back up gradients to save space
     }
-    fromJSON(json: VolJSON) {
+    fromJSON(json: SerializedVol) {
         this.sx = json.sx;
         this.sy = json.sy;
         this.depth = json.depth;
@@ -109,11 +116,4 @@ export class Vol {
             this.w[i] = json.w[i];
         }
     }
-}
-
-export interface VolJSON {
-    sx: number;
-    sy: number;
-    depth: number;
-    w: number[] | Float64Array;
 }

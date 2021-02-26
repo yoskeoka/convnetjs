@@ -15,6 +15,16 @@ export interface TrainerOptions {
     beta2?: number;
 }
 
+export interface TrainStats {
+    fwd_time: number;
+    bwd_time: number;
+    l2_decay_loss: number;
+    l1_decay_loss: number;
+    cost_loss: number;
+    softmax_loss: number;
+    loss: number;
+}
+
 export class Trainer {
     net: Net;
     regression: boolean;
@@ -63,7 +73,7 @@ export class Trainer {
         }
     }
 
-    train(x: Vol, y: number | number[] | Float64Array | { [key: string]: number }) {
+    train(x: Vol, y: number | number[] | Float64Array | { [key: string]: number }): TrainStats {
 
         let start = new Date().getTime();
         this.net.forward(x, true); // also set the flag that lets the net know we're just training

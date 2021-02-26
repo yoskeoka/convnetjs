@@ -1,8 +1,9 @@
 import { Vol } from "./convnet_vol";
-import { LayerBase, LayerOptions, ILayer, LayerJSON, ParamsAndGrads } from "./layers";
+import { LayerBase, LayerOptionsBase, ParamsAndGrads } from "./layers";
+import type { ILayer, SerializedLayerBase } from "./layers";
 import * as util from "./convnet_util";
 
-export interface PoolLayerOptions extends LayerOptions {
+export interface PoolOptions extends LayerOptionsBase<'pool'> {
     /** <required> filter size */
     sx: number;
     /** <optional> filter size */
@@ -13,7 +14,16 @@ export interface PoolLayerOptions extends LayerOptions {
     pad?: number;
 }
 
-export class PoolLayer extends LayerBase implements ILayer {
+export interface SerializedPool extends SerializedLayerBase<'pool'>{
+    sx: number;
+    sy: number;
+    stride: number;
+    in_depth: number;
+    pad: number;
+}
+
+
+export class PoolLayer extends LayerBase<'pool'> implements ILayer<'pool', SerializedPool> {
     sx: number;
     sy: number;
     in_depth: number;
@@ -26,33 +36,32 @@ export class PoolLayer extends LayerBase implements ILayer {
     in_act: Vol;
     out_act: Vol;
 
-    constructor(opt?: LayerOptions) {
+    constructor(opt?: PoolOptions) {
         if (!opt) { return; }
-        const popt = <PoolLayerOptions>opt;
-        super(popt);
+        super('pool', opt);
 
         // required
-        this.sx = popt.sx; // filter size
-        this.in_depth = popt.in_depth as number;
-        this.in_sx = popt.in_sx as number;
-        this.in_sy = popt.in_sy as number;
+        this.sx = opt.sx; // filter size
+        this.in_depth = opt.in_depth as number;
+        this.in_sx = opt.in_sx as number;
+        this.in_sy = opt.in_sy as number;
 
         // optional
-        this.sy = typeof popt.sy !== 'undefined' ? popt.sy : this.sx;
-        this.stride = typeof popt.stride !== 'undefined' ? popt.stride : 2;
-        this.pad = typeof popt.pad !== 'undefined' ? popt.pad : 0; // amount of 0 padding to add around borders of input volume
+        this.sy = typeof opt.sy !== 'undefined' ? opt.sy : this.sx;
+        this.stride = typeof opt.stride !== 'undefined' ? opt.stride : 2;
+        this.pad = typeof opt.pad !== 'undefined' ? opt.pad : 0; // amount of 0 padding to add around borders of input volume
 
         // computed
         this.out_depth = this.in_depth;
         this.out_sx = Math.floor((this.in_sx + this.pad * 2 - this.sx) / this.stride + 1);
         this.out_sy = Math.floor((this.in_sy + this.pad * 2 - this.sy) / this.stride + 1);
-        this.layer_type = 'pool';
+
         // store switches for x,y coordinates for where the max comes from, for each output neuron
         this.switchx = util.zeros(this.out_sx * this.out_sy * this.out_depth);
         this.switchy = util.zeros(this.out_sx * this.out_sy * this.out_depth);
     }
 
-    forward(V: Vol, ) {
+    forward(V: Vol) {
         this.in_act = V;
 
         const A = new Vol(this.out_sx, this.out_sy, this.out_depth, 0.0);
@@ -119,24 +128,24 @@ export class PoolLayer extends LayerBase implements ILayer {
         return [];
     }
 
-    toJSON() {
-        const json: LayerJSON = {};
-        json.sx = this.sx;
-        json.sy = this.sy;
-        json.stride = this.stride;
-        json.in_depth = this.in_depth;
-        json.out_depth = this.out_depth;
-        json.out_sx = this.out_sx;
-        json.out_sy = this.out_sy;
-        json.layer_type = this.layer_type;
-        json.pad = this.pad;
-        return json;
+    toJSON(): SerializedPool {
+        return {
+            layer_type: this.layer_type,
+            out_sx: this.out_sx,
+            out_sy: this.out_sy,
+            out_depth: this.out_depth,
+            in_depth: this.in_depth,
+            sx: this.sx,
+            sy: this.sy,
+            stride: this.stride,
+            pad: this.pad,
+        }
     }
-    fromJSON(json: LayerJSON) {
+    fromJSON(json: SerializedPool) {
         this.out_depth = json.out_depth as number;
         this.out_sx = json.out_sx as number;
         this.out_sy = json.out_sy as number;
-        this.layer_type = json.layer_type as string;
+        this.layer_type = json.layer_type as 'pool';
         this.sx = json.sx as number;
         this.sy = json.sy as number;
         this.stride = json.stride as number;
@@ -144,5 +153,7 @@ export class PoolLayer extends LayerBase implements ILayer {
         this.pad = (typeof json.pad !== 'undefined' ? json.pad : 0) as number; // backwards compatibility
         this.switchx = util.zeros(this.out_sx * this.out_sy * this.out_depth); // need to re-init these appropriately
         this.switchy = util.zeros(this.out_sx * this.out_sy * this.out_depth);
+
+        return this
     }
 }

@@ -1,18 +1,9 @@
-import * as util from "./convnet_util";
+import { randf, randi, maxmin, randperm, weightedSample, getopt, arrUnique  } from "./convnet_util";
 import { Vol } from "./convnet_vol";
-import { Net, NetJSON } from "./convnet_net";
+import { Net, SerializedNet } from "./convnet_net";
 import { Trainer, TrainerOptions } from "./convnet_trainers";
-import { LayerOptions } from "./layers";
-
-// used utilities, make explicit local references
-const randf = util.randf;
-const randi = util.randi;
-const maxmin = util.maxmin;
-const randperm = util.randperm;
-const weightedSample = util.weightedSample;
-const getopt = util.getopt;
-const arrUnique = util.arrUnique;
-
+import { LayerOptionsSugarType } from "./typings";
+import { InputOptions } from "./convnet_layers_input";
 
 export interface MagicNetOptions {
     [key: string]: number | string;
@@ -34,7 +25,7 @@ export interface MagicNetOptions {
 }
 
 export interface MagicNetJSON{
-    nets?: NetJSON[];
+    nets?: SerializedNet[];
 }
 
 export interface Fold {
@@ -45,7 +36,7 @@ export interface Fold {
 export interface Candidate {
     acc?: number[];
     accv?: number; // this will maintained as sum(acc) for convenience
-    layer_defs?: LayerOptions[];
+    layer_defs?: LayerOptionsSugarType[];
     trainer_def?: TrainerOptions;
     net?: Net;
     trainer?: Trainer;
@@ -153,12 +144,12 @@ export class MagicNet {
         const num_classes = this.unique_labels.length;
 
         // sample network topology and hyperparameters
-        const layer_defs = [];
-        layer_defs.push({ type: 'input', out_sx: 1, out_sy: 1, out_depth: input_depth });
+        const layer_defs: LayerOptionsSugarType[] = [];
+        layer_defs.push({ type: 'input', out_sx: 1, out_sy: 1, out_depth: input_depth } as InputOptions);
         const nl = weightedSample([0, 1, 2, 3], [0.2, 0.3, 0.3, 0.2]); // prefer nets with 1,2 hidden layers
         for (let q = 0; q < nl; q++) {
             const ni = randi(this.neurons_min, this.neurons_max);
-            const act = ['tanh', 'maxout', 'relu'][randi(0, 3)];
+            const act = (['tanh', 'maxout', 'relu'] as const)[randi(0, 3)];
             if (randf(0, 1) < 0.5) {
                 const dp = Math.random();
                 layer_defs.push({ type: 'fc', num_neurons: ni, activation: act, drop_prob: dp });
@@ -166,7 +157,7 @@ export class MagicNet {
                 layer_defs.push({ type: 'fc', num_neurons: ni, activation: act });
             }
         }
-        layer_defs.push({ type: 'softmax', num_classes: num_classes });
+        layer_defs.push({ type: 'softmax', num_classes } as LayerOptionsSugarType);
         const net = new Net();
         net.makeLayers(layer_defs);
 

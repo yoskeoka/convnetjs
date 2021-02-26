@@ -1,12 +1,16 @@
-import { Vol, VolJSON } from "./convnet_vol";
-export interface LayerOptions {
-    [key: string]: number | string;
-    type: string;
+import { Vol } from "./convnet_vol";
+export interface LayerOptionsBase<T extends string> {
+    type: T;
+    in_sx: number;
+    in_sy: number;
+    in_depth: number;
 }
 
-export interface LayerJSON {
-    [key: string]: number | string | number[] | VolJSON | VolJSON[];
-    filters?: VolJSON[];
+export interface SerializedLayerBase<T> {
+    layer_type: T;
+    out_sx: number;
+    out_sy: number;
+    out_depth: number;
 }
 
 export interface ParamsAndGrads {
@@ -17,8 +21,8 @@ export interface ParamsAndGrads {
 }
 
 
-export interface ILayer {
-    layer_type: string;
+export interface ILayer<T extends string, S extends SerializedLayerBase<T>> {
+    layer_type: T;
     in_sx: number;
     in_sy: number;
     in_depth: number;
@@ -28,19 +32,20 @@ export interface ILayer {
     forward(V: Vol, is_training: boolean): Vol;
     backward(y?: number | number[] | Float64Array | { [key: string]: number }): void | number;
     getParamsAndGrads(): ParamsAndGrads[];
-    toJSON(): LayerJSON;
-    fromJSON(json: LayerJSON): void;
+    toJSON(): S;
+    fromJSON(json: S): ILayer<T, S>;
 }
 
-export class LayerBase {
-    layer_type: string;
+export class LayerBase<T extends string> {
+    layer_type: T;
     in_sx: number;
     in_sy: number;
     in_depth: number;
     out_sx: number;
     out_sy: number;
     out_depth: number;
-    constructor(opt?: LayerOptions) {
+    constructor(layerType: T, opt?: LayerOptionsBase<T>) {
+        this.layer_type = layerType;
         if (!opt) { return; }
     }
 }

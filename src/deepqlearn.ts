@@ -1,9 +1,9 @@
 import { Vol } from "./convnet_vol";
 import { Net } from "./convnet_net";
-import { LayerOptions } from "./layers";
-import { InputLayerOptions } from "./convnet_layers_input";
+import { InputOptions } from "./convnet_layers_input";
 import { SGDTrainer, cnnutil, util } from "./index";
 import { TrainerOptions, Trainer } from "./convnet_trainers";
+import { LayerOptionsSugarType } from "./typings";
 
 /**
  * An agent is in state0 and does action0
@@ -34,7 +34,7 @@ export interface BrainOptions {
     epsilon_test_time?: number;
     random_action_distribution?: number[];
     gamma?: number;
-    layer_defs?: LayerOptions[];
+    layer_defs?: LayerOptionsSugarType[];
     hidden_layer_sizes?: number[];
     tdtrainer_options?: TrainerOptions;
 }
@@ -143,8 +143,8 @@ export class Brain {
         this.net_window = new Array(this.window_size);
 
         // create [state -> value of all possible actions] modeling net for the value function
-        let layer_defs = [];
-        if (typeof opt.layer_defs !== 'undefined') {
+        let layer_defs: LayerOptionsSugarType[] = [];
+        if ('layer_defs' in opt) {
             // this is an advanced usage feature, because size of the input to the network, and number of
             // actions must check out. This is not very pretty Object Oriented programming but I can't see
             // a way out of it :(
@@ -152,24 +152,26 @@ export class Brain {
             if (layer_defs.length < 2) { console.log('TROUBLE! must have at least 2 layers'); }
             if (layer_defs[0].type !== 'input') { console.log('TROUBLE! first layer must be input layer!'); }
             if (layer_defs[layer_defs.length - 1].type !== 'regression') { console.log('TROUBLE! last layer must be input regression!'); }
-            const inputlayerDef = <InputLayerOptions>layer_defs[0];
+            const inputlayerDef = <InputOptions>layer_defs[0];
             if (inputlayerDef.out_depth * inputlayerDef.out_sx * inputlayerDef.out_sy !== this.net_inputs) {
                 console.log('TROUBLE! Number of inputs must be num_states * temporal_window + num_actions * temporal_window + num_states!');
             }
-            if (layer_defs[layer_defs.length - 1].num_neurons !== this.num_actions) {
+
+            const lastLayer = layer_defs[layer_defs.length - 1];
+            if ('num_neurons' in lastLayer && lastLayer.num_neurons !== this.num_actions) {
                 console.log('TROUBLE! Number of regression neurons should be num_actions!');
             }
         } else {
             // create a very simple neural net by default
             layer_defs.push({ type: 'input', out_sx: 1, out_sy: 1, out_depth: this.net_inputs });
-            if (typeof opt.hidden_layer_sizes !== 'undefined') {
+            if ('hidden_layer_sizes' in opt) {
                 // allow user to specify this via the option, for convenience
                 const hl = opt.hidden_layer_sizes;
                 for (let k = 0; k < hl.length; k++) {
                     layer_defs.push({ type: 'fc', num_neurons: hl[k], activation: 'relu' }); // relu by default
                 }
             }
-            layer_defs.push({ type: 'regression', num_neurons: num_actions }); // value function output
+            layer_defs.push({ type: 'regression', num_classes: num_actions }); // value function output
         }
         this.value_net = new Net();
         this.value_net.makeLayers(layer_defs);

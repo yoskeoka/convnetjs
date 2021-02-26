@@ -9,7 +9,8 @@
         "buildtest": "tsc -p tsconfig.test.json",
         "test": "mocha test/build/test/*.spec.js --no-timeouts --colors",
         "build": "tsc -p . && webpack",
-        "start": "npm run build && ws"
+        "start": "npm run build && ws",
+        "install": "npm run build"
     },
     "repository": {
         "type": "git",
@@ -26,19 +27,17 @@
         "url": "https://github.com/yoskeoka/convnetjs-ts/issues"
     },
     "homepage": "https://github.com/yoskeoka/convnetjs-ts#readme",
-    "dependencies": {
-        "tslib": "^1.6.0"
-    },
     "devDependencies": {
         "@types/chai": "^3.5.0",
         "@types/mocha": "^2.2.38",
-        "@types/node": "^7.0.0",
+        "@types/node": "^14.14.31",
         "chai": "^3.5.0",
-        "local-web-server": "^1.2.7",
+        "local-web-server": "^4.2.1",
         "mocha": "^3.2.0",
         "ts-node": "^3.0.0",
+        "tslib": "^2.1.0",
         "tslint": "^5.0.0",
-        "typescript": "^2.3.0",
+        "typescript": "^4.1.5",
         "webpack": "^2.4.0"
     }
 }
